@@ -19,9 +19,9 @@
 # 2. Download powernet extension mib file from below official apc site.                      #
 #     ftp://ftp.apc.com/apc/public/software/pnetmib/mib/414/powernet414.mib                  #
 #                                                                                            #
-# 3. Set path of powernet mib file to variable $POWERNETMIB in line 40 of this script.       #
+# 3. Set community name to variable $COMMUNITYNAME in line 40 of this script.                #
 #                                                                                            #
-# 4. Set community name to variable $COMMUNITYNAME in line 39 of this script.                #
+# 4. Set path of powernet mib file to variable $POWERNETMIB in line 41 of this script.       #
 #                                                                                            #
 # 5. Do "chmod 755 /usr/share/munin/plugins/apc__upspdu"                                     #
 #                                                                                            #

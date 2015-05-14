@@ -52,8 +52,8 @@ Download this plugin.
     git clone https://github.com/MasayaAoyama/apc-ups-pdu-munin.git
     cp -ai apc-ups-pdu-munin/apc__upspdu /usr/share/munin/plugins/apc__upspdu
 
-Set community name to variable $COMMUNITYNAME in line 39 of this script.
-Set path of powernet mib file to variable $POWERNETMIB in line 40 of this script.
+Set community name to variable $COMMUNITYNAME in line 40 of this script.
+Set path of powernet mib file to variable $POWERNETMIB in line 41 of this script.
 
     vi /usr/share/munin/plugins/apc__upspdu
 
