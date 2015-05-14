@@ -4,6 +4,8 @@ See also https://github.com/ndonegan/munin-contrib/tree/master/plugins/ups
 
 # How to Use
 
+If you have a question, please contact to me.
+
 ## Install Munin and Munin Node
 
 First of all, install software.
