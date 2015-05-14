@@ -1,0 +1,167 @@
+#!/bin/bash
+
+##############################################################################################
+#                         Plugin to monitor UPS and PDU of APC status                        #
+##############################################################################################
+
+# Auther: Masaya Aoyama
+# Last Update: 2013/03/16
+
+##############################################################################################
+#                                                                                            #
+# Please don"t forget below settings.                                                        #
+# See also for more information (https://github.com/MasayaAoyama/apc-ups-pdu-munin)          #
+#                                                                                            #
+# 1. Use name "apc_HOSTNAME_[ups|pdu]"                                                       #
+#     ex) apc_node01.example.net_ups                                                         #
+#     ex) apc_10.111.1.10_pdu                                                                #
+#                                                                                            #
+# 2. Download powernet extension mib file from below official apc site.                      #
+#     ftp://ftp.apc.com/apc/public/software/pnetmib/mib/414/powernet414.mib                  #
+#                                                                                            #
+# 3. Set path of powernet mib file to variable $POWERNETMIB in line 40 of this script.       #
+#                                                                                            #
+# 4. Set community name to variable $COMMUNITYNAME in line 39 of this script.                #
+#                                                                                            #
+# 5. Do "chmod 755 /usr/share/munin/plugins/apc__upspdu"                                     #
+#                                                                                            #
+##############################################################################################
+
+#%# family=auto
+#%# capabilities=autoconf
+
+##############################################################################################
+#                                     Variable settings                                      #
+##############################################################################################
+SNMPWALK_BIN=$(which snmpwalk)
+TARGET=$(echo "${0##*/}" | cut -d _ -f 2)
+TARGETSUMMARY=$(echo "${TARGET}" | cut -d . -f 1)
+UPSORPDU=$(echo "${0##*/}" | cut -d _ -f 3)
+COMMUNITYNAME="public"
+POWERNETMIB="/root/.snmp/mibs/powernet414.mib"
+
+##############################################################################################
+#                                        Error Check                                         #
+##############################################################################################
+if [ ! -f "${POWERNETMIB}" ]; then
+        echo "Cannot find powernet mib file in $POWERNETMIB"
+        exit 1
+elif [ "$SNMPWALK_BIN" = "" ]; then
+        echo "Cannot find snmpwalk command."
+        echo "Please do \"yum -y install net-snmp net-snmp-utils\""
+        exit 1
+fi
+
+##############################################################################################
+#                                         autoConfig                                         #
+##############################################################################################
+if [ "$1" = "autoconf" ]; then
+        if [ ! -f "${POWERNETMIB}" ]; then
+                echo "no"
+                exit 1
+        elif [[ "$SNMPWALK_BIN" =~ "^/usr/bin/which: no snmpwalk in.*" ]]; then
+                echo "no"
+                exit 1
+        else
+                echo "yes"
+                exit 0
+        fi
+fi
+
+##############################################################################################
+#                           config part (config for graph setting)                           #
+##############################################################################################
+if [ "$1" = "config" ] ; then
+        echo "host_name ${TARGET}"
+        if [ "$UPSORPDU" = "ups" ]; then
+                echo "multigraph power_monitor_${TARGETSUMMARY}"
+                echo "graph_args -r --lower-limit 0 "
+                echo "graph_title ups equipment power status ${TARGET}"
+                echo "graph_category ups"
+                echo "graph_info This graph shows the ups equipment power status ${TARGET}"
+                echo "graph_vlabel 0.1V"
+                echo "inputVoltage.label input voltage"
+                echo "inputVoltage.draw LINE2"
+                echo "inputVoltage.type GAUGE"
+                echo "outputVoltage.label output voltage"
+                echo "outputVoltage.draw LINE2"
+                echo "outputVoltage.type GAUGE"
+                echo "inputMaxVoltage.label input max voltage"
+                echo "inputMaxVoltage.draw LINE"
+                echo "inputMaxVoltage.type GAUGE"
+                echo "inputMinVoltage.label input min voltage"
+                echo "inputMinVoltage.draw LINE"
+                echo "inputMinVoltage.type GAUGE"
+
+                echo "multigraph batteryCapacity_monitor_${TARGETSUMMARY}"
+                echo "graph_args -r --lower-limit 0 "
+                echo "graph_title ups equipment battery capacity status ${TARGET}"
+                echo "graph_category ups"
+                echo "graph_info This graph shows the ups equipment battery capacity status ${TARGET}"
+                echo "graph_vlabel 0.1%"
+                echo "batteryCapacity.label battary capacity"
+                echo "batteryCapacity.draw LINE2"
+                echo "batteryCapacity.type GAUGE"
+                echo "batteryCapacity.warning 700:"
+                echo "batteryCapacity.critical 500:"
+                echo "OutputLoad.label battary output load"
+                echo "OutputLoad.draw LINE2"
+                echo "OutputLoad.type GAUGE"
+                echo "OutputLoad.warning :700"
+                echo "OutputLoad.critical :900"
+
+                echo "multigraph batteryRemaining_monitor_${TARGETSUMMARY}"
+                echo "graph_args -r --lower-limit 0 "
+                echo "graph_title ups equipment battery remaining status ${TARGET}"
+                echo "graph_category ups"
+                echo "graph_info This graph shows the ups equipment battery remaining status ${TARGET}"
+                echo "graph_vlabel minutes"
+                echo "batteryRemaining.label battary remaining"
+                echo "batteryRemaining.draw LINE2"
+                echo "batteryRemaining.type GAUGE"
+                echo "batteryRemaining.warning 20:"
+                echo "batteryRemaining.critical 5:"
+                exit 0
+        elif [ "$UPSORPDU" = "pdu" ]; then
+                echo "multigraph power_monitor_${TARGETSUMMARY}"
+                echo "graph_args -r --lower-limit 0"
+                echo "graph_title pdu equipment power status ${TARGET}"
+                echo "graph_category pdu"
+                echo "graph_info This graph shows the pdu equipment power status ${TARGET}"
+                echo "graph_vlabel device power (VA and Watts)"
+                echo "WattsPower.label power with Watts"
+                echo "WattsPower.draw LINE2"
+                echo "WattsPower.type GAUGE"
+                echo "VAPower.label power with VA"
+                echo "VAPower.draw LINE2"
+                echo "VAPower.type GAUGE"
+                exit 0
+        else
+                echo "This name is an incorrect name. ${0##*/}"
+                exit 1
+        fi
+fi
+
+##############################################################################################
+#                                       operation part                                       #
+##############################################################################################
+if [ "$UPSORPDU" = "ups" ]; then
+                RESULT=$("$SNMPWALK_BIN" -c "$COMMUNITYNAME" -v 1 -m "$POWERNETMIB" "$TARGET" .1.3.6.1.4.1.318.1.1.1 | egrep -i "PowerNet-MIB::upsAdvBatteryRunTimeRemaining|PowerNet-MIB::upsHighPrecBatteryCapacity|PowerNet-MIB::upsHighPrecInputLineVoltage|PowerNet-MIB::upsHighPrecInputMaxLineVoltage|PowerNet-MIB::upsHighPrecInputMinLineVoltage|PowerNet-MIB::upsHighPrecOutputVoltage|PowerNet-MIB::upsHighPrecOutputLoad")
+                echo "multigraph power_monitor_${TARGETSUMMARY}"
+                echo ${RESULT}+"" | awk '{inputVoltage = $13; outputVoltage = $25; inputMaxVoltage = $17; inputMinVoltage = $21} END \
+                        {print "inputVoltage.value ",inputVoltage/'1'"\n""outputVoltage.value ",outputVoltage/'1'"\n""inputMaxVoltage.value ",inputMaxVoltage/'1'"\n""inputMinVoltage.value ",inputMinVoltage/'1'}'
+                echo "multigraph batteryCapacity_monitor_${TARGETSUMMARY}"
+                echo ${RESULT}+"" | awk '{batteryCapacity = $9; OutputLoad = $29} END \
+                        {print "batteryCapacity.value ",batteryCapacity/'1'"\n""OutputLoad.value ",OutputLoad/'1'}'
+                echo "multigraph batteryRemaining_monitor_${TARGETSUMMARY}"
+                echo ${RESULT}+"" | perl -pi -e 's|^(.*).:(..):..\...|$1$2|' | awk '{batteryRemaining = $5} END \
+                        {print "batteryRemaining.value ",batteryRemaining/'1'}'
+elif [ "$UPSORPDU" = "pdu" ]; then
+                RESULT=$("$SNMPWALK_BIN" -c "$COMMUNITYNAME" -v 1 -m "$POWERNETMIB" "$TARGET" .1.3.6.1.4.1.318.1.1.12 | egrep -i "PowerNet-MIB::rPDUIdentDevicePowerWatts|PowerNet-MIB::rPDUIdentDevicePowerVA")
+                echo "multigraph power_monitor_${TARGETSUMMARY}"
+                echo ${RESULT}+"" | awk '{WattsPower = $4; VAPower = $8} END \
+                        {print "WattsPower.value ",WattsPower/'1'"\n""VAPower.value ",VAPower/'1'}'
+else
+        echo "This name is an incorrect name. ${0##*/}"
+        exit 1
+fi
