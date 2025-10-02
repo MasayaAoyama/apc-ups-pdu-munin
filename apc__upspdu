@@ -99,12 +99,12 @@ if [ "$1" = "config" ] ; then
                 echo "graph_category ups"
                 echo "graph_info This graph shows the ups equipment battery capacity status ${TARGET}"
                 echo "graph_vlabel 0.1%"
-                echo "batteryCapacity.label battary capacity"
+                echo "batteryCapacity.label battery capacity"
                 echo "batteryCapacity.draw LINE2"
                 echo "batteryCapacity.type GAUGE"
                 echo "batteryCapacity.warning 700:"
                 echo "batteryCapacity.critical 500:"
-                echo "OutputLoad.label battary output load"
+                echo "OutputLoad.label battery output load"
                 echo "OutputLoad.draw LINE2"
                 echo "OutputLoad.type GAUGE"
                 echo "OutputLoad.warning :700"
@@ -116,11 +116,29 @@ if [ "$1" = "config" ] ; then
                 echo "graph_category ups"
                 echo "graph_info This graph shows the ups equipment battery remaining status ${TARGET}"
                 echo "graph_vlabel minutes"
-                echo "batteryRemaining.label battary remaining"
+                echo "batteryRemaining.label battery remaining"
                 echo "batteryRemaining.draw LINE2"
                 echo "batteryRemaining.type GAUGE"
                 echo "batteryRemaining.warning 20:"
                 echo "batteryRemaining.critical 5:"
+
+                echo "multigraph temperature_monitor_${TARGETSUMMARY}"
+                echo "graph_args -r --lower-limit 0 "
+                echo "graph_title ups equipment operating temperature status ${TARGET}"
+                echo "graph_category ups"
+                echo "graph_info This graph shows the ups equipment operating temperature status ${TARGET}"
+                echo "graph_vlabel Celsius"
+                echo "batteryTemperature.label battery temperature"
+                echo "batteryTemperature.draw LINE2"
+                echo "batteryTemperature.type GAUGE"
+                echo "batteryTemperature.warning 24:"
+                echo "batteryTemperature.critical 26:"
+                echo "sensorTemperature.label sensor temperature"
+                echo "sensorTemperature.draw LINE2"
+                echo "sensorTemperature.type GAUGE"
+                echo "sensorTemperature.warning 24:"
+                echo "sensorTemperature.critical 26:"
+
                 exit 0
         elif [ "$UPSORPDU" = "pdu" ]; then
                 echo "multigraph power_monitor_${TARGETSUMMARY}"
@@ -146,16 +164,24 @@ fi
 #                                       operation part                                       #
 ##############################################################################################
 if [ "$UPSORPDU" = "ups" ]; then
-                RESULT=$("$SNMPWALK_BIN" -c "$COMMUNITYNAME" -v 1 -m "$POWERNETMIB" "$TARGET" .1.3.6.1.4.1.318.1.1.1 | egrep -i "PowerNet-MIB::upsAdvBatteryRunTimeRemaining|PowerNet-MIB::upsHighPrecBatteryCapacity|PowerNet-MIB::upsHighPrecInputLineVoltage|PowerNet-MIB::upsHighPrecInputMaxLineVoltage|PowerNet-MIB::upsHighPrecInputMinLineVoltage|PowerNet-MIB::upsHighPrecOutputVoltage|PowerNet-MIB::upsHighPrecOutputLoad")
+                RESULT=$("$SNMPWALK_BIN" -c "$COMMUNITYNAME" -v 1 -m "$POWERNETMIB" "$TARGET" .1.3.6.1.4.1.318.1.1.1 | egrep -i "PowerNet-MIB::upsAdvBatteryRunTimeRemaining|PowerNet-MIB::upsHighPrecBatteryCapacity|PowerNet-MIB::upsHighPrecInputLineVoltage|PowerNet-MIB::upsHighPrecInputMaxLineVoltage|PowerNet-MIB::upsHighPrecInputMinLineVoltage|PowerNet-MIB::upsHighPrecOutputVoltage|PowerNet-MIB::upsHighPrecOutputLoad|PowerNet-MIB::upsAdvBatteryTemperature")
+                SENSORRESULT=$("$SNMPWALK_BIN" -c "$COMMUNITYNAME" -v 1 -m "$POWERNETMIB" "$TARGET" .1.3.6.1.4.1.318.1.1.25 | egrep -i "PowerNet-MIB::uioSensorStatusTemperatureDegC")
                 echo "multigraph power_monitor_${TARGETSUMMARY}"
-                echo ${RESULT}+"" | awk '{inputVoltage = $13; outputVoltage = $25; inputMaxVoltage = $17; inputMinVoltage = $21} END \
+                echo ${RESULT}+"" | awk '{inputVoltage = $17; outputVoltage = $29; inputMaxVoltage = $21; inputMinVoltage = $25} END \
                         {print "inputVoltage.value ",inputVoltage/'1'"\n""outputVoltage.value ",outputVoltage/'1'"\n""inputMaxVoltage.value ",inputMaxVoltage/'1'"\n""inputMinVoltage.value ",inputMinVoltage/'1'}'
                 echo "multigraph batteryCapacity_monitor_${TARGETSUMMARY}"
-                echo ${RESULT}+"" | awk '{batteryCapacity = $9; OutputLoad = $29} END \
+                echo ${RESULT}+"" | awk '{batteryCapacity = $13; OutputLoad = $33} END \
                         {print "batteryCapacity.value ",batteryCapacity/'1'"\n""OutputLoad.value ",OutputLoad/'1'}'
                 echo "multigraph batteryRemaining_monitor_${TARGETSUMMARY}"
-                echo ${RESULT}+"" | perl -pi -e 's|^(.*).:(..):..\...|$1$2|' | awk '{batteryRemaining = $5} END \
+                echo ${RESULT}+"" | perl -p -e 's|^(.*).:(..):..\...|$1$2|' | awk '{batteryRemaining = $9} END \
                         {print "batteryRemaining.value ",batteryRemaining/'1'}'
+                
+                echo "multigraph temperature_monitor_${TARGETSUMMARY}"
+                echo ${RESULT}+"" | awk '{batteryTemperature = $4} END \
+                    {print "batteryTemperature.value ",batteryTemperature/'1'}'
+                echo ${SENSORRESULT} | awk '{sensorTemperature = $4} END \
+                    {print "sensorTemperature.value ",sensorTemperature/'1'}'
+
 elif [ "$UPSORPDU" = "pdu" ]; then
                 RESULT=$("$SNMPWALK_BIN" -c "$COMMUNITYNAME" -v 1 -m "$POWERNETMIB" "$TARGET" .1.3.6.1.4.1.318.1.1.12 | egrep -i "PowerNet-MIB::rPDUIdentDevicePowerWatts|PowerNet-MIB::rPDUIdentDevicePowerVA")
                 echo "multigraph power_monitor_${TARGETSUMMARY}"
